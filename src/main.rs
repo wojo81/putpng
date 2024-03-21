@@ -3,7 +3,7 @@ use putpng::crop::*;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command()]
+#[command(version)]
 struct Args {
     #[command(subcommand)]
     commands: Commands,
