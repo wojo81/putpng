@@ -27,8 +27,10 @@ impl Crc32 {
     }
 }
 
+const default_grab_seek: std::io::SeekFrom = SeekFrom::Start(33);
+
 fn read_chunk_header(file: &mut File) -> (u32, [u8; 4]) {
-    let mut buffer: [u8; 4] = Default::default();
+    let mut buffer = <[u8; 4]>::default();
     file.read(&mut buffer).unwrap();
     let length = u32::from_be_bytes(buffer);
     file.read(&mut buffer).unwrap();
@@ -50,7 +52,9 @@ fn create_grab_chunk(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
         &x.to_be_bytes(),
         &y.to_be_bytes()
     ].concat();
+
     let body: &[u8] = &body;
+
     [
         &8u32.to_be_bytes(),
         body,
@@ -65,7 +69,7 @@ pub fn insert_grab_chunk(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y
 fn change_grab_to(path: &str, x: i32, y: i32, crc: &Crc32) {
     let mut file = File::options().read(true).write(true).open(path).unwrap();
 
-    file.seek(SeekFrom::Start(33)).unwrap();
+    file.seek(default_grab_seek).unwrap();
     let (mut length, mut name) = read_chunk_header(&mut file);
 
     while name != "IDAT".as_bytes() {
@@ -77,34 +81,34 @@ fn change_grab_to(path: &str, x: i32, y: i32, crc: &Crc32) {
         file.seek(SeekFrom::Current(length as i64 + 4)).unwrap();
         (length, name) = read_chunk_header(&mut file);
     }
-    insert_grab_chunk(&mut file, SeekFrom::Start(33), &crc, x, y);
+    insert_grab_chunk(&mut file, default_grab_seek, &crc, x, y);
 }
 
-pub fn read_grab_offset(path: &str) -> (i32, i32) {
-    let mut file = File::options().read(true).open(path).unwrap();
+pub fn read_grab_offset(path: &str) -> Option<(i32, i32)> {
+    let mut file = File::open(path).unwrap();
 
-    file.seek(SeekFrom::Start(33)).unwrap();
+    file.seek(default_grab_seek).unwrap();
     let (mut length, mut name) = read_chunk_header(&mut file);
 
     while name != "IDAT".as_bytes() {
         if name == "grAb".as_bytes() {
-            let mut buffer: [u8; 4] = Default::default();
+            let mut buffer = <[u8; 4]>::default();
             file.read(&mut buffer).unwrap();
             let x = i32::from_be_bytes(buffer);
             file.read(&mut buffer).unwrap();
             let y = i32::from_be_bytes(buffer);
-            return (x, y)
+            return Some((x, y))
         }
         file.seek(SeekFrom::Current(length as i64 + 4)).unwrap();
         (length, name) = read_chunk_header(&mut file);
     }
 
-    (0, 0)
+    None
 }
 
 pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) {
     let mut file = File::options().read(true).write(true).open(path).unwrap();
-    insert_grab_chunk(&mut file, SeekFrom::Start(33), crc, x, y);
+    insert_grab_chunk(&mut file, default_grab_seek, crc, x, y);
 }
 
 pub fn apply_grab(paths: impl Iterator<Item = String>, x: i32, y: i32) {

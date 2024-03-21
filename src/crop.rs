@@ -21,10 +21,8 @@ impl<'a> ImageCropper<'a> {
 
     fn left_offset(&self) -> u32 {
         for x in 0..self.width {
-            for y in 0..self.height {
-                if self.is_visible(x, y) {
-                    return x;
-                }
+            if (0..self.height).any(|y| self.is_visible(x, y)) {
+                return x;
             }
         }
         0
@@ -32,21 +30,17 @@ impl<'a> ImageCropper<'a> {
 
     fn right_offset(&self) -> u32 {
         for x in (0..self.width).rev() {
-            for y in 0..self.height {
-                if self.is_visible(x, y) {
-                    return x;
-                }
+            if (0..self.height).any(|y| self.is_visible(x, y)) {
+                return x;
             }
         }
-        0
+        self.width - 1
     }
 
     fn top_offset(&self) -> u32 {
         for y in 0..self.height {
-            for x in 0..self.width {
-                if self.is_visible(x, y) {
-                    return y;
-                }
+            if (0..self.width).any(|x| self.is_visible(x, y)) {
+                return y;
             }
         }
         0
@@ -54,13 +48,11 @@ impl<'a> ImageCropper<'a> {
 
     fn bottom_offset(&self) -> u32 {
         for y in (0..self.height).rev() {
-            for x in 0..self.width {
-                if self.is_visible(x, y) {
-                    return y;
-                }
+            if (0..self.width).any(|x| self.is_visible(x, y)) {
+                return y;
             }
         }
-        0
+        self.height - 1
     }
 
     fn save(&self) -> (i32, i32) {
@@ -78,7 +70,7 @@ impl<'a> ImageCropper<'a> {
 pub fn apply_crop(paths: impl Iterator<Item = String>) {
     let crc = Crc32::new();
     for path in paths {
-        let grab_offset = read_grab_offset(&path);
+        let grab_offset = read_grab_offset(&path).unwrap_or_default();
         let crop_offset = ImageCropper::open(&path).save();
         let new_offset = (grab_offset.0 - crop_offset.0, grab_offset.1 - crop_offset.1);
         if new_offset.0 != 0 && new_offset.1 != 0 {
