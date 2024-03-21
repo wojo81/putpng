@@ -5,6 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+debug = false
+strip = true
+opt-level = 'z'
+codegen-units = 1
+panic = 'abort'
+
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
 image = "0.24.9"
