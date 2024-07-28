@@ -33,7 +33,8 @@ This program is only meant for offsetting with 'grAb' chunks within 'png' files,
 
 ## Example
 
-Let's say that a user wants to apply an offset of '(16, 32)' and crop a batch of sprites under various folders under the parent folder 'generic_weapon'. However, the folders named 'pickup' and 'projectile' need all of their underlying sprites to keep their relative offsets. In this case they could open a terminal within the parent folder of 'generic_weapon' and write:
+Let's say that a user wants to apply an offset of '(16, 32)' and crop a batch of sprites under various folders under the parent folder 'generic_weapon'. However, the folders named 'pickup' and 'projectile' need all of their underlying sprites to be centered. In this case they could open a terminal within the parent folder of 'generic_weapon' and write:
 
     putpng grab 16 32 generic_weapon\*\* -i pickup\ projectile\
+    putpng grab w/2 'h / 2' generic_weapon\pickup\* generic_weapon\projectile\*
     putpng crop generic_weapon\*\*
