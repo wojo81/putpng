@@ -1,5 +1,7 @@
 use std::fs::*;
 use std::io::*;
+use image::*;
+use crate::calc;
 
 pub struct Crc32 {
     table: [u32; 256],
@@ -111,9 +113,15 @@ pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) {
     insert_grab_chunk(&mut file, default_grab_seek, crc, x, y);
 }
 
-pub fn apply_grab(paths: impl Iterator<Item = String>, x: i32, y: i32) {
+pub fn apply_grab(paths: impl Iterator<Item = String>, x: String, y: String) {
     let crc = Crc32::new();
+
     for path in paths {
+        println!("{path:?}");
+        let (width, height) = image::open(path.clone()).unwrap().dimensions();
+        let width = width as i32;
+        let height = height as i32;
+        let (x, y) = (calc::eval(&x, width, height).unwrap(), calc::eval(&y, width, height).unwrap());
         change_grab_to(&path, x, y, &crc);
         println!("Grabbed '{path}' successfully!");
     }

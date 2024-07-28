@@ -20,7 +20,7 @@ struct Args {
 #[derive(Subcommand)]
 enum Commands {
     ///Apply the given offsets to the specified png files
-    Grab { x: i32, y: i32 },
+    Grab { x: String, y: String },
     ///Crop out the empty edges of the specified png files, but keep the relative offset
     Crop,
     ///Displays the grab offsets of the specified png files
