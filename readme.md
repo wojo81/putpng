@@ -28,7 +28,7 @@ This program is only meant for offsetting with 'grAb' chunks within 'png' files,
     putpng [-h | --help | help]
 
 **version**: provides version
-
+ 
     putpng [-V | --version]
 
 ## Example

@@ -7,7 +7,6 @@ pub fn eval(Token: &str, width: i32, height: i32) -> Result<i32> {
     }
     let mut ints = vec![];
     for token in yard.expel()? {
-        println!("{token:?}");
         match token {
             Token::Int(int) => ints.push(int),
             Token::Un(un) => {
@@ -39,13 +38,13 @@ impl<'a> Yard<'a> {
     fn new(source: &'a str) -> Self {
         Self { source, detour: Vec::new(), target: Vec::new(), edicts: [default_placing, default_binding], mode: Mode::Place }
     }
-    
+
     fn shunt(&mut self) -> Result<()> {
         let (token, source) = Token::claim(self.source, self)?;
         (self.edicts[self.mode as usize])(self, token)?;
         Ok(self.source = source.trim_start())
     }
-    
+
     fn expel(mut self) -> Result<Vec<Token>> {
         while !self.detour.is_empty() {
             self.target.push(self.detour.pop().unwrap());
@@ -125,7 +124,7 @@ impl Token {
                 '/' => Token::div,
                 ')' => Token::Paren(true),
                 _ => panic!(),
-            }  
+            }
         };
         Ok((token, &source[1..]))
     }
