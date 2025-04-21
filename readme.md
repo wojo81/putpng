@@ -1,9 +1,9 @@
 # putpng
 
 ## Purpose
-putpng is a sort replacement for the Doom modding tools setpng and grabpng: https://zdoom.org/wiki/SetPNG
+putpng is a sort of replacement for the Doom modding tools setpng and grabpng: https://zdoom.org/wiki/SetPNG
 
-This program is only meant for offsetting with 'grAb' chunks within 'png' files, so it does not contain equivalents to setpng's 'alph', 'noalph', and 'z' options. Currently, it also does not support mathematical offset arguments like in grabpng. However, it does contain a special crop command which is present in other Doom modding tools.
+This program is only meant for offsetting with 'grAb' chunks within 'png' files, so it does not contain equivalents to setpng's 'alph', 'noalph', and 'z' options. However, it does contain a crop command which is present in other Doom modding tools.
 
 ## Usage
 
@@ -28,7 +28,7 @@ This program is only meant for offsetting with 'grAb' chunks within 'png' files,
     putpng [-h | --help | help]
 
 **version**: provides version
- 
+
     putpng [-V | --version]
 
 ## Example
