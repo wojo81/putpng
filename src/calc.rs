@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-pub fn eval(Token: &str, width: i32, height: i32) -> Result<i32> {
-    let mut yard = Yard::new(Token);
+pub fn eval(source: &str, width: i32, height: i32) -> Result<i32> {
+    let mut yard = Yard::new(source);
     while !yard.source.is_empty() {
         yard.shunt()?;
     }
@@ -9,18 +9,20 @@ pub fn eval(Token: &str, width: i32, height: i32) -> Result<i32> {
     for token in yard.expel()? {
         match token {
             Token::Int(int) => ints.push(int),
-            Token::Un(un) => {
-                let int = ints.pop().unwrap();
-                ints.push((Into::<UnFn>::into(un))(int));
-            },
-            Token::Bin(bin) => {
-                let right = ints.pop().unwrap();
-                let left = ints.pop().unwrap();
-                ints.push((Into::<BinFn>::into(bin))(left, right));
-            },
+            Token::Un(un) =>
+                match ints.pop() {
+                    Some(int) => ints.push(UnFn::from(un)(int)),
+                    _ => panic!(),
+                },
+            Token::Bin(bin) =>
+                match (ints.pop(), ints.pop()) {
+                    (Some(right), Some(left)) => ints.push(BinFn::from(bin)(left, right)),
+                    _ => panic!(),
+                },
             Token::Width => ints.push(width),
             Token::Height => ints.push(height),
-            _ => panic!()
+            Token::OpenParen => return Err(Error::DanglingOpenParen),
+            Token::CloseParen => return Err(Error::DanglingCloseParen),
         }
     }
     Ok(*ints.first().unwrap())
@@ -28,44 +30,50 @@ pub fn eval(Token: &str, width: i32, height: i32) -> Result<i32> {
 
 struct Yard<'a> {
     source: &'a str,
-    target: Vec<Token>,
     detour: Vec<Token>,
+    target: Vec<Token>,
     edicts: [Edict; 2],
     mode: Mode,
 }
 
 impl<'a> Yard<'a> {
     fn new(source: &'a str) -> Self {
-        Self { source, detour: Vec::new(), target: Vec::new(), edicts: [default_placing, default_binding], mode: Mode::Place }
+        Self { source: source.trim_start(), detour: vec![], target: vec![], edicts: [default_placing, default_binding], mode: Mode::Place }
     }
 
     fn shunt(&mut self) -> Result<()> {
         let (token, source) = Token::claim(self.source, self)?;
-        (self.edicts[self.mode as usize])(self, token)?;
+        self.edicts[self.mode as usize](self, token)?;
         Ok(self.source = source.trim_start())
     }
 
     fn expel(mut self) -> Result<Vec<Token>> {
+        match (self.detour.pop(), self.mode) {
+            (Some(Token::Bin(bin)), Mode::Place) => return Err(Error::DanglingOperator(char::from(bin.clone()))),
+            (Some(Token::Un(un)), Mode::Place) => return Err(Error::DanglingOperator(char::from(un.clone()))),
+            (Some(operator), _) => self.target.push(operator),
+            _ => (),
+        }
         while !self.detour.is_empty() {
             self.target.push(self.detour.pop().unwrap());
         }
         Ok(self.target)
     }
 
-    fn insert(&mut self, token: Token) -> Result<()> {
-        while let Some(last_token) = self.detour.pop() {
-            match (last_token, token.clone()) {
-                (operator, Token::Paren(false)) => {
-                    self.detour.push(operator);
+    fn insert(&mut self, new_token: Token) -> Result<()> {
+        while let Some(old_token) = self.detour.pop() {
+            match (old_token.clone(), new_token.clone()) {
+                (_, Token::OpenParen) | (Token::Un(_), Token::Un(_)) => {
+                    self.detour.push(old_token);
                     break;
                 },
-                (Token::Paren(false), Token::Paren(true)) => return Ok(()),
-                (Token::Paren(false), operator) => {
-                    self.detour.push(Token::Paren(false).clone());
-                    self.detour.push(operator);
+                (Token::OpenParen, Token::CloseParen) => return Ok(()),
+                (Token::OpenParen, new_operator) => {
+                    self.detour.push(Token::OpenParen);
+                    self.detour.push(new_operator);
                     return Ok(());
                 },
-                (operator, Token::Paren(true)) => self.target.push(operator),
+                (old_operator, Token::CloseParen) => self.target.push(old_operator),
                 (old_operator, new_operator) => {
                     if old_operator.precedence() >= new_operator.precedence() {
                         self.target.push(old_operator);
@@ -76,7 +84,7 @@ impl<'a> Yard<'a> {
                 }
             }
         }
-        Ok(self.detour.push(token))
+        Ok(self.detour.push(new_token))
     }
 }
 
@@ -89,7 +97,8 @@ enum Token {
     Int(i32),
     Un(Unary),
     Bin(Binary),
-    Paren(bool),
+    OpenParen,
+    CloseParen,
     Width,
     Height,
 }
@@ -114,19 +123,27 @@ impl Token {
                 '-' => Token::negate,
                 'w' => Token::Width,
                 'h' => Token::Height,
-                '(' => Token::Paren(false),
-                _ => panic!(),
+                '(' => Token::OpenParen,
+                ')' => return Err(Error::MisplacedCloseParen),
+                '*' => return Err(Error::MisplacedOperator('*')),
+                '/' => return Err(Error::MisplacedOperator('/')),
+                c => return Err(Error::UnknownCharacter(c))
             },
             Mode::Bind => match chars.next().unwrap() {
+                '0' ..= '9' => {
+                    let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
+                    return Err(Error::MisplacedInteger(source[0 .. digit_count].to_string()));
+                },
                 '+' => Token::add,
                 '-' => Token::sub,
                 '*' => Token::mul,
                 '/' => Token::div,
-                ')' => Token::Paren(true),
-                _ => panic!(),
+                ')' => Token::CloseParen,
+                '(' => return Err(Error::MisplacedOpenParen),
+                c => return Err(Error::UnknownCharacter(c))
             }
         };
-        Ok((token, &source[1..]))
+        Ok((token, &source[1 ..]))
     }
 
     fn precedence(&self) -> i32 {
@@ -151,6 +168,15 @@ impl From<Unary> for UnFn {
     }
 }
 
+impl From<Unary> for char {
+    fn from(un: Unary) -> Self {
+        match un {
+            Unary::Affirm => '+',
+            Unary::Negate => '-'
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 enum Binary { Add, Sub, Mul, Div }
 
@@ -165,7 +191,18 @@ impl From<Binary> for BinFn {
     }
 }
 
-#[derive(Clone, Copy)]
+impl From<Binary> for char {
+    fn from(bin: Binary) -> Self {
+        match bin {
+            Binary::Add => '+',
+            Binary::Sub => '-',
+            Binary::Mul => '*',
+            Binary::Div => '/',
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Place, Bind
 }
@@ -181,7 +218,7 @@ fn default_placing(yard: &mut Yard, token: Token) -> Result<()> {
         Token::Un(_) => {
             yard.insert(token)?;
         },
-        Token::Paren(false) => {
+        Token::OpenParen => {
             yard.edicts[Mode::Bind as usize] = paren_binding;
             yard.insert(token)?
         },
@@ -196,30 +233,45 @@ fn default_binding(yard: &mut Yard, token: Token) -> Result<()> {
             yard.insert(token)?;
             yard.mode = Mode::Place;
         },
+        Token::CloseParen => return Err(Error::DanglingOpenParen),
         _ => panic!()
     }
     Ok(())
 }
 
 fn paren_binding(yard: &mut Yard, token: Token) -> Result<()> {
-    if token == Token::Paren(true) {
+    if token == Token::CloseParen {
         yard.insert(token)
     } else {
         default_binding(yard, token)
     }
 }
 
-type Result<T> = std::result::Result<T, CalcError>;
+type Result<T> = std::result::Result<T, Error>;
 
-#[derive(PartialEq)]
-pub enum CalcError {
-    Unknown,
-}
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("unknown character: '{0}'")]
+    UnknownCharacter(char),
 
-impl Debug for CalcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            CalcError::Unknown => write!(f, "invalid syntax in arithmetic argument!"),
-        }
-    }
+    #[error("misplaced integer '{0}'")]
+    MisplacedInteger(String),
+
+    #[error("misplaced operator '{0}'")]
+    MisplacedOperator(char),
+
+    #[error("dangling operator '{0}'")]
+    DanglingOperator(char),
+
+    #[error("misplaced '('")]
+    MisplacedOpenParen,
+
+    #[error("misplaced ')'")]
+    MisplacedCloseParen,
+
+    #[error("dangling '('")]
+    DanglingOpenParen,
+
+    #[error("dangling ')'")]
+    DanglingCloseParen,
 }

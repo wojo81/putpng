@@ -27,25 +27,21 @@ enum Commands {
     Show,
 }
 
-fn not_containing(ignore: Vec<String>) -> impl Fn(&String) -> bool {
+fn ignoring(ignore: Vec<String>) -> impl Fn(&String) -> bool {
     move |p| !ignore.iter().any(|i| p.contains(i))
 }
 
 fn main() {
     let args = Args::parse_from(wild::args());
 
-    match args {
-        Args {commands, paths, ignore} => {
-            let paths = paths.into_iter().filter(not_containing(ignore));
-            match commands {
-                Commands::Grab {x, y} => apply_grab(paths, x, y),
-                Commands::Crop => apply_crop(paths),
-                Commands::Show => for path in paths {
-                    match read_grab_offset(&path) {
-                        Some(offset) => println!("'{path}': {offset:?}"),
-                        _ => println!("'{path}' does not have an offset")
-                    }
-                }
+    let (commands, paths) = (args.commands, args.paths.into_iter().filter(ignoring(args.ignore)));
+    match commands {
+        Commands::Grab {x, y} => apply_grab(paths, x, y),
+        Commands::Crop => apply_crop(paths),
+        Commands::Show => for path in paths {
+            match read_grab_offset(&path) {
+                Some(offset) => println!("'{path}': {offset:?}"),
+                _ => println!("'{path}' does not have an offset")
             }
         }
     }

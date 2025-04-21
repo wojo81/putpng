@@ -113,16 +113,25 @@ pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) {
     insert_grab_chunk(&mut file, default_grab_seek, crc, x, y);
 }
 
-pub fn apply_grab(paths: impl Iterator<Item = String>, x: String, y: String) {
+pub fn apply_grab(paths: impl Iterator<Item = String>, source_x: String, source_y: String) {
     let crc = Crc32::new();
 
     for path in paths {
-        println!("{path:?}");
-        let (width, height) = image::open(path.clone()).unwrap().dimensions();
-        let width = width as i32;
-        let height = height as i32;
-        let (x, y) = (calc::eval(&x, width, height).unwrap(), calc::eval(&y, width, height).unwrap());
-        change_grab_to(&path, x, y, &crc);
-        println!("Grabbed '{path}' successfully!");
+        let (w, h) = {
+            let (w, h) = image::open(path.clone()).unwrap().dimensions();
+            (w as i32, h as i32)
+        };
+        match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
+            (Ok(x), Ok(y)) => {
+                change_grab_to(&path, x, y, &crc);
+                println!("grabbed '{path}' successfully at ({x}, {y})!");
+            },
+            (Err(e1), Err(e2)) => {
+                println!("error in '{source_x:}': {e1}");
+                println!("error in '{source_y:}': {e2}")
+            }
+            (Err(e), _) => println!("error in '{source_x}': {e}"),
+            (_, Err(e)) => println!("error in '{source_y}': {e}"),
+        }
     }
 }
