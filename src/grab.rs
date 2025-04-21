@@ -3,6 +3,8 @@ use std::io::*;
 use image::*;
 use crate::calc;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 pub struct Crc32 {
     table: [u32; 256],
 }
@@ -31,21 +33,22 @@ impl Crc32 {
 
 const default_grab_seek: std::io::SeekFrom = SeekFrom::Start(33);
 
-fn read_chunk_header(file: &mut File) -> (u32, [u8; 4]) {
+fn read_chunk_header(file: &mut File) -> Result<(u32, [u8; 4])> {
     let mut buffer = <[u8; 4]>::default();
-    file.read(&mut buffer).unwrap();
+    file.read(&mut buffer)?;
     let length = u32::from_be_bytes(buffer);
-    file.read(&mut buffer).unwrap();
-    (length, buffer)
+    file.read(&mut buffer)?;
+    Ok((length, buffer))
 }
 
-fn write_into(file: &mut File, seek: SeekFrom, data: &[u8]) {
+fn write_into(file: &mut File, seek: SeekFrom, data: &[u8]) -> Result<()> {
     let mut buffer = Vec::new();
-    file.seek(seek).unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-    file.seek(seek).unwrap();
-    file.write(data).unwrap();
-    file.write(&buffer).unwrap();
+    file.seek(seek)?;
+    file.read_to_end(&mut buffer)?;
+    file.seek(seek)?;
+    file.write(data)?;
+    file.write(&buffer)?;
+    Ok(())
 }
 
 fn create_grab_chunk(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
@@ -64,74 +67,77 @@ fn create_grab_chunk(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
     ].concat()
 }
 
-pub fn insert_grab_chunk(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) {
-    write_into(file, seek, &create_grab_chunk(crc, x, y))
+pub fn insert_grab_chunk(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) -> Result<(), >{
+    Ok(write_into(file, seek, &create_grab_chunk(crc, x, y))?)
 }
 
-fn change_grab_to(path: &str, x: i32, y: i32, crc: &Crc32) {
-    let mut file = File::options().read(true).write(true).open(path).unwrap();
+fn change_grab_to(path: &str, x: i32, y: i32, crc: &Crc32) -> Result<()> {
+    let mut file = File::options().read(true).write(true).open(path)?;
 
-    file.seek(default_grab_seek).unwrap();
-    let (mut length, mut name) = read_chunk_header(&mut file);
+    file.seek(default_grab_seek)?;
+    let (mut length, mut name) = read_chunk_header(&mut file)?;
 
     while name != "IDAT".as_bytes() {
         if name == "grAb".as_bytes() {
             let offset: &[u8] = &[x.to_be_bytes(), y.to_be_bytes()].concat();
-            file.write(&[offset, &crc.calculate(&[&name, offset].concat()).to_be_bytes()].concat()).unwrap();
-            return;
+            file.write(&[offset, &crc.calculate(&[&name, offset].concat()).to_be_bytes()].concat())?;
+            return Ok(());
         }
-        file.seek(SeekFrom::Current(length as i64 + 4)).unwrap();
-        (length, name) = read_chunk_header(&mut file);
+        file.seek(SeekFrom::Current(length as i64 + 4))?;
+        (length, name) = read_chunk_header(&mut file)?;
     }
-    insert_grab_chunk(&mut file, default_grab_seek, &crc, x, y);
+    insert_grab_chunk(&mut file, default_grab_seek, &crc, x, y)?;
+    Ok(())
 }
 
-pub fn read_grab_offset(path: &str) -> Option<(i32, i32)> {
-    let mut file = File::open(path).unwrap();
+pub fn read_grab_offset(path: &str) -> Result<Option<(i32, i32)>> {
+    let mut file = File::open(path)?;
 
-    file.seek(default_grab_seek).unwrap();
-    let (mut length, mut name) = read_chunk_header(&mut file);
+    file.seek(default_grab_seek)?;
+    let (mut length, mut name) = read_chunk_header(&mut file)?;
 
     while name != "IDAT".as_bytes() {
         if name == "grAb".as_bytes() {
             let mut buffer = <[u8; 4]>::default();
-            file.read(&mut buffer).unwrap();
+            file.read(&mut buffer)?;
             let x = i32::from_be_bytes(buffer);
-            file.read(&mut buffer).unwrap();
+            file.read(&mut buffer)?;
             let y = i32::from_be_bytes(buffer);
-            return Some((x, y))
+            return Ok(Some((x, y)))
         }
-        file.seek(SeekFrom::Current(length as i64 + 4)).unwrap();
-        (length, name) = read_chunk_header(&mut file);
+        file.seek(SeekFrom::Current(length as i64 + 4))?;
+        (length, name) = read_chunk_header(&mut file)?;
     }
 
-    None
+    Ok(None)
 }
 
-pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) {
-    let mut file = File::options().read(true).write(true).open(path).unwrap();
-    insert_grab_chunk(&mut file, default_grab_seek, crc, x, y);
+pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) -> Result<()> {
+    let mut file = File::options().read(true).write(true).open(path)?;
+    insert_grab_chunk(&mut file, default_grab_seek, crc, x, y)?;
+    Ok(())
 }
 
-pub fn apply_grab(paths: impl Iterator<Item = String>, source_x: String, source_y: String) {
+pub fn apply_grab(paths: impl Iterator<Item = String>, source_x: String, source_y: String) -> Result<()> {
     let crc = Crc32::new();
 
     for path in paths {
         let (w, h) = {
-            let (w, h) = image::open(path.clone()).unwrap().dimensions();
+            let (w, h) = image::open(path.clone())?.dimensions();
             (w as i32, h as i32)
         };
         match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
             (Ok(x), Ok(y)) => {
-                change_grab_to(&path, x, y, &crc);
+                change_grab_to(&path, x, y, &crc)?;
                 println!("grabbed '{path}' successfully at ({x}, {y})!");
             },
             (Err(e1), Err(e2)) => {
-                println!("error in '{source_x:}': {e1}");
-                println!("error in '{source_y:}': {e2}")
+                eprintln!("error in '{source_x:}': {e1}");
+                eprintln!("error in '{source_y:}': {e2}")
             }
-            (Err(e), _) => println!("error in '{source_x}': {e}"),
-            (_, Err(e)) => println!("error in '{source_y}': {e}"),
+            (Err(e), _) => eprintln!("error in '{source_x}': {e}"),
+            (_, Err(e)) => eprintln!("error in '{source_y}': {e}"),
         }
     }
+    Ok(())
 }

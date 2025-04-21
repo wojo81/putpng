@@ -36,12 +36,17 @@ fn main() {
 
     let (commands, paths) = (args.commands, args.paths.into_iter().filter(ignoring(args.ignore)));
     match commands {
-        Commands::Grab {x, y} => apply_grab(paths, x, y),
-        Commands::Crop => apply_crop(paths),
+        Commands::Grab {x, y} => {
+            let _ = apply_grab(paths, x, y).inspect_err(|e| eprintln!("{e}"));
+        },
+        Commands::Crop => {
+            let _ = apply_crop(paths).inspect_err(|e| eprintln!("{e}"));
+        },
         Commands::Show => for path in paths {
             match read_grab_offset(&path) {
-                Some(offset) => println!("'{path}': {offset:?}"),
-                _ => println!("'{path}' does not have an offset")
+                Ok(Some(offset)) => println!("'{path}': {offset:?}"),
+                Err(e) => eprintln!("{e}"),
+                _ => eprintln!("'{path}' does not have an offset")
             }
         }
     }
