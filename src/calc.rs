@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 pub fn eval(source: &str, width: i32, height: i32) -> Result<i32> {
-    let mut yard = Yard::new(source);
+    let mut yard = Yard::new(source)?;
     while !yard.source.is_empty() {
         yard.shunt()?;
     }
@@ -16,6 +16,7 @@ pub fn eval(source: &str, width: i32, height: i32) -> Result<i32> {
                 },
             Token::Bin(bin) =>
                 match (ints.pop(), ints.pop()) {
+                    (Some(0), Some(_)) if bin == Binary::Div => return Err(Error::DivideByZero),
                     (Some(right), Some(left)) => ints.push(BinFn::from(bin)(left, right)),
                     _ => panic!(),
                 },
@@ -37,8 +38,13 @@ struct Yard<'a> {
 }
 
 impl<'a> Yard<'a> {
-    fn new(source: &'a str) -> Self {
-        Self { source: source.trim_start(), detour: vec![], target: vec![], edicts: [default_placing, default_binding], mode: Mode::Place }
+    fn new(source: &'a str) -> Result<Self> {
+        let source = source.trim_start();
+        if source.is_empty() {
+            Err(Error::EmptyExpression)
+        } else {
+            Ok(Self { source, detour: vec![], target: vec![], edicts: [default_placing, default_binding], mode: Mode::Place })
+        }
     }
 
     fn shunt(&mut self) -> Result<()> {
@@ -233,7 +239,7 @@ fn default_binding(yard: &mut Yard, token: Token) -> Result<()> {
             yard.insert(token)?;
             yard.mode = Mode::Place;
         },
-        Token::CloseParen => return Err(Error::DanglingOpenParen),
+        Token::CloseParen => return Err(Error::DanglingCloseParen),
         _ => panic!()
     }
     Ok(())
@@ -249,8 +255,11 @@ fn paren_binding(yard: &mut Yard, token: Token) -> Result<()> {
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum Error {
+    #[error("empty expression")]
+    EmptyExpression,
+
     #[error("unknown character: '{0}'")]
     UnknownCharacter(char),
 
@@ -274,4 +283,7 @@ pub enum Error {
 
     #[error("dangling ')'")]
     DanglingCloseParen,
+
+    #[error("divide by zero")]
+    DivideByZero,
 }
