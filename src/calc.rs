@@ -125,14 +125,14 @@ impl Token {
                     let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
                     return Ok((Token::Int(source[0 .. digit_count].parse().unwrap()), &source[digit_count ..]));
                 },
-                '+' => Token::affirm,
-                '-' => Token::negate,
                 'w' => Token::Width,
                 'h' => Token::Height,
-                '(' => Token::OpenParen,
-                ')' => return Err(Error::MisplacedCloseParen),
+                '+' => Token::affirm,
+                '-' => Token::negate,
                 '*' => return Err(Error::MisplacedOperator('*')),
                 '/' => return Err(Error::MisplacedOperator('/')),
+                '(' => Token::OpenParen,
+                ')' => return Err(Error::MisplacedCloseParen),
                 c => return Err(Error::UnknownCharacter(c))
             },
             Mode::Bind => match chars.next().unwrap() {
@@ -140,12 +140,14 @@ impl Token {
                     let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
                     return Err(Error::MisplacedInteger(source[0 .. digit_count].to_string()));
                 },
+                'w' => return Err(Error::MisplacedInteger("w".into())),
+                'h' => return Err(Error::MisplacedInteger("h".into())),
                 '+' => Token::add,
                 '-' => Token::sub,
                 '*' => Token::mul,
                 '/' => Token::div,
-                ')' => Token::CloseParen,
                 '(' => return Err(Error::MisplacedOpenParen),
+                ')' => Token::CloseParen,
                 c => return Err(Error::UnknownCharacter(c))
             }
         };

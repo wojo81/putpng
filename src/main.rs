@@ -13,7 +13,7 @@ struct Args {
     paths: Vec<String>,
 
     ///If paths contain these strings, ignore them
-    #[arg(short, long, global=true, num_args=1..)]
+    #[arg(short, long, global=true, num_args = 1 ..)]
     ignore: Vec<String>,
 }
 
@@ -37,7 +37,7 @@ fn main() {
     let (commands, paths) = (args.commands, args.paths.into_iter().filter(ignoring(args.ignore)));
     match commands {
         Commands::Grab {x, y} => {
-            let _ = apply_grab(paths, x, y).inspect_err(|e| eprintln!("{e}"));
+            let _ = grab_all(paths, x, y).inspect_err(|e| eprintln!("{e}"));
         },
         Commands::Crop => {
             let _ = apply_crop(paths).inspect_err(|e| eprintln!("{e}"));
@@ -46,7 +46,7 @@ fn main() {
             match read_grab_offset(&path) {
                 Ok(Some(offset)) => println!("'{path}': {offset:?}"),
                 Err(e) => eprintln!("{e}"),
-                _ => eprintln!("'{path}' does not have an offset")
+                _ => println!("'{path}' does not have an offset")
             }
         }
     }

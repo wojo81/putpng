@@ -118,26 +118,100 @@ pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) -> Result<()> {
     Ok(())
 }
 
-pub fn apply_grab(paths: impl Iterator<Item = String>, source_x: String, source_y: String) -> Result<()> {
+macro_rules! error {
+    ($($arg:tt)*) => {
+        return Err(format!($($arg)*).into())
+    };
+}
+
+pub fn grab_all(paths: impl Iterator<Item = String>, source_x: String, source_y: String) -> Result<()> {
     let crc = Crc32::new();
 
-    for path in paths {
-        let (w, h) = {
-            let (w, h) = image::open(path.clone())?.dimensions();
-            (w as i32, h as i32)
-        };
-        match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
-            (Ok(x), Ok(y)) => {
-                change_grab_to(&path, x, y, &crc)?;
-                println!("grabbed '{path}' successfully at ({x}, {y})!");
-            },
-            (Err(e1), Err(e2)) => {
-                eprintln!("error in '{source_x:}': {e1}");
-                eprintln!("error in '{source_y:}': {e2}")
+    let width_or_height = |c| c == 'w' || c == 'h';
+    let get_dimensions = |path: &String| -> std::result::Result<(i32, i32), Box<dyn std::error::Error>> {
+        let (w, h) = image::open(path.clone())?.dimensions();
+        Ok((w as i32, h as i32))
+    };
+
+    match (source_x.contains(width_or_height), source_y.contains(width_or_height)) {
+        (true, true) => {
+            for path in paths.into_iter() {
+                let (w, h) = get_dimensions(&path)?;
+                match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
+                    (Ok(x), Ok(y)) => {
+                        change_grab_to(&path, x, y, &crc)?;
+                        println!("grabbed '{path}' successfully at ({x}, {y})!");
+                    },
+                    (Err(e1), Err(e2)) => error!("error in '{source_x:}' for '{path}': {e1}\nerror in '{source_y:}' for '{path}': {e2}"),
+                    (Err(e), _) => error!("error in '{source_x}' for '{path}': {e}"),
+                    (_, Err(e)) => error!("error in '{source_y}' for '{path}': {e}"),
+                }
             }
-            (Err(e), _) => eprintln!("error in '{source_x}': {e}"),
-            (_, Err(e)) => eprintln!("error in '{source_y}': {e}"),
+        },
+        (false, false) => {
+            match (calc::eval(&source_x, 0, 0), calc::eval(&source_y, 0, 0)) {
+                (Ok(x), Ok(y)) => {
+                    for path in paths {
+                        change_grab_to(&path, x, y, &crc)?;
+                        println!("grabbed '{path}' successfully at ({x}, {y})!");
+                    }
+                }
+                (Err(e1), Err(e2)) => error!("error in '{source_x}': {e1}\nerror in '{source_y}': {e2}"),
+                (Err(e), _) => error!("error in '{source_x}': {e}"),
+                (_, Err(e)) => error!("error in '{source_y}': {e}"),
+            }
+        },
+        (true, false) => {
+            match calc::eval(&source_y, 0, 0) {
+                Ok(y) => {
+                    for path in paths {
+                        let (w, h) = get_dimensions(&path)?;
+                        match calc::eval(&source_x, w, h) {
+                            Ok(x) => {
+                                change_grab_to(&path, x, y, &crc)?;
+                                println!("grabbed '{path}' successfully at ({x}, {y})!");
+                            },
+                            Err(e) => error!("error in '{source_x}' for '{path}': {e}"),
+                        }
+                    }
+                }
+                Err(e) => {
+                    if let Some(path) = paths.into_iter().next() {
+                        let (w, h) = get_dimensions(&path)?;
+                        if let Err(e) = calc::eval(&source_x, w, h) {
+                            eprintln!("error in '{source_x}' for '{path}': {e}");
+                        }
+                    }
+                    error!("error in '{source_y}': {e}");
+                }
+            }
+        }
+        (false, true) => {
+            match calc::eval(&source_x, 0, 0) {
+                Ok(x) => {
+                    for path in paths {
+                        let (w, h) = get_dimensions(&path)?;
+                        match calc::eval(&source_y, w, h) {
+                            Ok(y) => {
+                                change_grab_to(&path, x, y, &crc)?;
+                                println!("grabbed '{path}' successfully at ({x}, {y})!");
+                            },
+                            Err(e) => error!("error in '{source_y}' for '{path}': {e}"),
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("error in '{source_x}': {e}");
+                    if let Some(path) = paths.into_iter().next() {
+                        let (w, h) = get_dimensions(&path)?;
+                        if let Err(e) = calc::eval(&source_y, w, h) {
+                            error!("error in '{source_y}' for '{path}': {e}");
+                        }
+                    }
+                }
+            }
         }
     }
+
     Ok(())
 }
