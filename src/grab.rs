@@ -11,7 +11,7 @@ pub struct Crc32 {
 
 impl Crc32 {
     pub fn new() -> Self {
-        Self {table: core::array::from_fn(|i| {
+        Self {table: std::array::from_fn(|i| {
             let mut e = i as u32;
             for _ in 0..8 {
                 if e & 1 == 1 {
@@ -118,18 +118,18 @@ pub fn push_grab_chunk(path: &str, x: i32, y: i32, crc: &Crc32) -> Result<()> {
     Ok(())
 }
 
-macro_rules! error {
-    ($($arg:tt)*) => {
-        return Err(format!($($arg)*).into())
-    };
-}
-
 pub fn grab_all(paths: impl Iterator<Item = String>, source_x: String, source_y: String) -> Result<()> {
     let crc = Crc32::new();
 
+    macro_rules! error {
+        ($($arg:tt)*) => {
+            return Err(format!($($arg)*).into())
+        };
+    }
+
     let width_or_height = |c| c == 'w' || c == 'h';
-    let get_dimensions = |path: &String| -> std::result::Result<(i32, i32), Box<dyn std::error::Error>> {
-        let (w, h) = image::open(path.clone())?.dimensions();
+    let get_dimensions = |path: &str| -> Result<(i32, i32)> {
+        let (w, h) = image::open(path)?.dimensions();
         Ok((w as i32, h as i32))
     };
 

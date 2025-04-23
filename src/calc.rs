@@ -55,8 +55,8 @@ impl<'a> Yard<'a> {
 
     fn expel(mut self) -> Result<Vec<Token>> {
         match (self.detour.pop(), self.mode) {
-            (Some(Token::Bin(bin)), Mode::Place) => return Err(Error::DanglingOperator(char::from(bin.clone()))),
-            (Some(Token::Un(un)), Mode::Place) => return Err(Error::DanglingOperator(char::from(un.clone()))),
+            (Some(Token::Bin(bin)), Mode::Place) => return Err(Error::DanglingOperator(char::from(bin))),
+            (Some(Token::Un(un)), Mode::Place) => return Err(Error::DanglingOperator(char::from(un))),
             (Some(operator), _) => self.target.push(operator),
             _ => (),
         }

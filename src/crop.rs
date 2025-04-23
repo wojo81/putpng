@@ -73,9 +73,11 @@ impl<'a> ImageCropper<'a> {
 pub fn apply_crop(paths: impl Iterator<Item = String>) -> Result<()> {
     let crc = Crc32::new();
     for path in paths {
-        let grab_offset = read_grab_offset(&path)?.unwrap_or_default();
-        let crop_offset = ImageCropper::open(&path)?.save()?;
-        let new_offset = (grab_offset.0 - crop_offset.0, grab_offset.1 - crop_offset.1);
+        let new_offset = {
+            let grab_offset = read_grab_offset(&path)?.unwrap_or_default();
+            let crop_offset = ImageCropper::open(&path)?.save()?;
+            (grab_offset.0 - crop_offset.0, grab_offset.1 - crop_offset.1)
+        };
         push_grab_chunk(&path, new_offset.0, new_offset.1, &crc)?;
         println!("Cropped '{path}' successfully!");
     }
