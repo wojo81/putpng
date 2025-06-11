@@ -1,6 +1,7 @@
-use putpng::grab::*;
-use putpng::crop::*;
 use clap::{Parser, Subcommand};
+use putpng::crc::*;
+use putpng::crop::*;
+use putpng::grab::*;
 
 #[derive(Parser)]
 #[command(version)]
@@ -9,7 +10,7 @@ struct Args {
     commands: Commands,
 
     //Paths to be used
-    #[arg(global=true)]
+    #[arg(global = true)]
     paths: Vec<String>,
 
     ///If paths contain these strings, ignore them
@@ -34,19 +35,26 @@ fn ignoring(ignore: Vec<String>) -> impl Fn(&String) -> bool {
 fn main() {
     let args = Args::parse_from(wild::args());
 
-    let (commands, paths) = (args.commands, args.paths.into_iter().filter(ignoring(args.ignore)));
+    let (commands, paths) = (
+        args.commands,
+        args.paths.into_iter().filter(ignoring(args.ignore)),
+    );
     match commands {
-        Commands::Grab {x, y} => {
-            let _ = grab_all(paths, x, y).inspect_err(|e| eprintln!("{e}"));
-        },
+        Commands::Grab { x, y } => {
+            let crc = Crc32::new();
+            let _ = grab_all(paths, &crc, x, y).inspect_err(|e| eprintln!("{e}"));
+        }
         Commands::Crop => {
-            let _ = apply_crop(paths).inspect_err(|e| eprintln!("{e}"));
-        },
-        Commands::Show => for path in paths {
-            match read_grab_offset(&path) {
-                Ok(Some(offset)) => println!("'{path}': {offset:?}"),
-                Err(e) => eprintln!("{e}"),
-                _ => println!("'{path}' does not have an offset")
+            let crc = Crc32::new();
+            let _ = crop_all(paths, &crc).inspect_err(|e| eprintln!("{e}"));
+        }
+        Commands::Show => {
+            for path in paths {
+                match read_grab(&path) {
+                    Ok(Some(offset)) => println!("'{path}': {offset:?}"),
+                    Err(e) => eprintln!("{e}"),
+                    _ => println!("'{path}' does not have an offset"),
+                }
             }
         }
     }

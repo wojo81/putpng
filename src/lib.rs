@@ -1,7 +1,8 @@
 #![allow(nonstandard_style)]
-pub mod grab;
-pub mod crop;
 pub mod calc;
+pub mod crc;
+pub mod crop;
+pub mod grab;
 
 #[cfg(test)]
 mod calc_tests {
@@ -81,7 +82,10 @@ mod calc_tests {
 
     #[test]
     fn misplaced_integer() {
-        assert_eq!(eval("1 + 2 3", 0, 0), Err(Error::MisplacedInteger("3".into())));
+        assert_eq!(
+            eval("1 + 2 3", 0, 0),
+            Err(Error::MisplacedInteger("3".into()))
+        );
     }
 
     #[test]
