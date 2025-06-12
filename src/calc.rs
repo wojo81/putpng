@@ -9,17 +9,15 @@ pub fn eval(source: &str, width: i32, height: i32) -> Result<i32> {
     for token in yard.expel()? {
         match token {
             Token::Int(int) => ints.push(int),
-            Token::Un(un) =>
-                match ints.pop() {
-                    Some(int) => ints.push(UnFn::from(un)(int)),
-                    _ => panic!(),
-                },
-            Token::Bin(bin) =>
-                match (ints.pop(), ints.pop()) {
-                    (Some(0), Some(_)) if bin == Binary::Div => return Err(Error::DivideByZero),
-                    (Some(right), Some(left)) => ints.push(BinFn::from(bin)(left, right)),
-                    _ => panic!(),
-                },
+            Token::Un(un) => match ints.pop() {
+                Some(int) => ints.push(UnFn::from(un)(int)),
+                _ => panic!(),
+            },
+            Token::Bin(bin) => match (ints.pop(), ints.pop()) {
+                (Some(0), Some(_)) if bin == Binary::Div => return Err(Error::DivideByZero),
+                (Some(right), Some(left)) => ints.push(BinFn::from(bin)(left, right)),
+                _ => panic!(),
+            },
             Token::Width => ints.push(width),
             Token::Height => ints.push(height),
             Token::OpenParen => return Err(Error::DanglingOpenParen),
@@ -43,7 +41,13 @@ impl<'a> Yard<'a> {
         if source.is_empty() {
             Err(Error::EmptyExpression)
         } else {
-            Ok(Self { source, detour: vec![], target: vec![], edicts: [default_placing, default_binding], mode: Mode::Place })
+            Ok(Self {
+                source,
+                detour: vec![],
+                target: vec![],
+                edicts: [default_placing, default_binding],
+                mode: Mode::Place,
+            })
         }
     }
 
@@ -55,8 +59,12 @@ impl<'a> Yard<'a> {
 
     fn expel(mut self) -> Result<Vec<Token>> {
         match (self.detour.pop(), self.mode) {
-            (Some(Token::Bin(bin)), Mode::Place) => return Err(Error::DanglingOperator(char::from(bin))),
-            (Some(Token::Un(un)), Mode::Place) => return Err(Error::DanglingOperator(char::from(un))),
+            (Some(Token::Bin(bin)), Mode::Place) => {
+                return Err(Error::DanglingOperator(char::from(bin)));
+            }
+            (Some(Token::Un(un)), Mode::Place) => {
+                return Err(Error::DanglingOperator(char::from(un)));
+            }
             (Some(operator), _) => self.target.push(operator),
             _ => (),
         }
@@ -72,13 +80,13 @@ impl<'a> Yard<'a> {
                 (_, Token::OpenParen) | (Token::Un(_), Token::Un(_)) => {
                     self.detour.push(old_token);
                     break;
-                },
+                }
                 (Token::OpenParen, Token::CloseParen) => return Ok(()),
                 (Token::OpenParen, new_operator) => {
                     self.detour.push(Token::OpenParen);
                     self.detour.push(new_operator);
                     return Ok(());
-                },
+                }
                 (old_operator, Token::CloseParen) => self.target.push(old_operator),
                 (old_operator, new_operator) => {
                     if old_operator.precedence() >= new_operator.precedence() {
@@ -121,10 +129,13 @@ impl Token {
         let mut chars = source.chars();
         let token = match yard.mode {
             Mode::Place => match chars.next().unwrap() {
-                '0' ..= '9' => {
+                '0'..='9' => {
                     let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
-                    return Ok((Token::Int(source[0 .. digit_count].parse().unwrap()), &source[digit_count ..]));
-                },
+                    return Ok((
+                        Token::Int(source[0..digit_count].parse().unwrap()),
+                        &source[digit_count..],
+                    ));
+                }
                 'w' => Token::Width,
                 'h' => Token::Height,
                 '+' => Token::affirm,
@@ -133,13 +144,13 @@ impl Token {
                 '/' => return Err(Error::MisplacedOperator('/')),
                 '(' => Token::OpenParen,
                 ')' => return Err(Error::MisplacedCloseParen),
-                c => return Err(Error::UnknownCharacter(c))
+                c => return Err(Error::UnknownCharacter(c)),
             },
             Mode::Bind => match chars.next().unwrap() {
-                '0' ..= '9' => {
+                '0'..='9' => {
                     let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
-                    return Err(Error::MisplacedInteger(source[0 .. digit_count].to_string()));
-                },
+                    return Err(Error::MisplacedInteger(source[0..digit_count].to_string()));
+                }
                 'w' => return Err(Error::MisplacedInteger("w".into())),
                 'h' => return Err(Error::MisplacedInteger("h".into())),
                 '+' => Token::add,
@@ -148,10 +159,10 @@ impl Token {
                 '/' => Token::div,
                 '(' => return Err(Error::MisplacedOpenParen),
                 ')' => Token::CloseParen,
-                c => return Err(Error::UnknownCharacter(c))
-            }
+                c => return Err(Error::UnknownCharacter(c)),
+            },
         };
-        Ok((token, &source[1 ..]))
+        Ok((token, &source[1..]))
     }
 
     fn precedence(&self) -> i32 {
@@ -165,7 +176,10 @@ impl Token {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Unary { Affirm, Negate }
+enum Unary {
+    Affirm,
+    Negate,
+}
 
 impl From<Unary> for UnFn {
     fn from(un: Unary) -> Self {
@@ -180,13 +194,18 @@ impl From<Unary> for char {
     fn from(un: Unary) -> Self {
         match un {
             Unary::Affirm => '+',
-            Unary::Negate => '-'
+            Unary::Negate => '-',
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Binary { Add, Sub, Mul, Div }
+enum Binary {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
 
 impl From<Binary> for BinFn {
     fn from(bin: Binary) -> Self {
@@ -212,24 +231,25 @@ impl From<Binary> for char {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
-    Place, Bind
+    Place,
+    Bind,
 }
 
-type Edict = fn (&mut Yard, token: Token) -> Result<()>;
+type Edict = fn(&mut Yard, token: Token) -> Result<()>;
 
 fn default_placing(yard: &mut Yard, token: Token) -> Result<()> {
     match token {
         Token::Int(_) | Token::Width | Token::Height => {
             yard.target.push(token);
             yard.mode = Mode::Bind;
-        },
+        }
         Token::Un(_) => {
             yard.insert(token)?;
-        },
+        }
         Token::OpenParen => {
             yard.edicts[Mode::Bind as usize] = paren_binding;
             yard.insert(token)?
-        },
+        }
         _ => panic!(),
     }
     Ok(())
@@ -240,9 +260,9 @@ fn default_binding(yard: &mut Yard, token: Token) -> Result<()> {
         Token::Bin(_) => {
             yard.insert(token)?;
             yard.mode = Mode::Place;
-        },
+        }
         Token::CloseParen => return Err(Error::DanglingCloseParen),
-        _ => panic!()
+        _ => panic!(),
     }
     Ok(())
 }
