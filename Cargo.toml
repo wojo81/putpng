@@ -9,7 +9,7 @@ readme = "readme.md"
 repository = "https://github.com/wojo81/putpng"
 documentation = "https://docs.rs/putpng"
 homepage = "https://github.com/wojo81/putpng"
-keywords = ["grabpng", "setpng", "doom", "cli", "library", "tool"]
+keywords = ["grabpng", "setpng", "doom", "cli", "tool"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
