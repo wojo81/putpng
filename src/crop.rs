@@ -77,6 +77,7 @@ impl<'a> ImageCropper<'a> {
     }
 }
 
+///Crops all the specified pngs while preserving relative grab offsets
 pub fn crop_all(paths: impl Iterator<Item = String>, crc: &Crc32) -> Result<()> {
     for path in paths {
         let new_offset = {
@@ -84,7 +85,7 @@ pub fn crop_all(paths: impl Iterator<Item = String>, crc: &Crc32) -> Result<()> 
             let crop_offset = ImageCropper::open(&path)?.save()?;
             (grab_offset.0 - crop_offset.0, grab_offset.1 - crop_offset.1)
         };
-        push_grab(&path, new_offset.0, new_offset.1, &crc)?;
+        push_grab(&path, crc, new_offset.0, new_offset.1)?;
         println!("Cropped '{path}' successfully!");
     }
     Ok(())

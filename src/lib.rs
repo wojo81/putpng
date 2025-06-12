@@ -1,5 +1,5 @@
 #![allow(nonstandard_style)]
-pub mod calc;
+mod calc;
 pub mod crc;
 pub mod crop;
 pub mod grab;

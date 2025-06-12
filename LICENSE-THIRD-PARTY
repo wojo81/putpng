@@ -1,0 +1,9 @@
+This project includes third-party code licensed under the following terms:
+
+exr
+- License: BSD-3-Clause
+- Source: https://crates.io/crates/exr
+
+lebe
+- License: BSD-3-Clause
+- Source: https://crates.io/crates/lebe

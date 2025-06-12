@@ -39,11 +39,42 @@ fn create_grab(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
     .concat()
 }
 
-pub fn insert_grab(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+fn insert_grab(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     Ok(write_into(file, seek, &create_grab(crc, x, y))?)
 }
 
-fn change_grab_to(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+///Tries to read the grab chunk if there is one
+pub fn read_grab(path: &str) -> Result<Option<(i32, i32)>> {
+    let mut file = File::open(path)?;
+
+    file.seek(default_grab_seek)?;
+    let (mut length, mut name) = read_header(&mut file)?;
+
+    while name != "IDAT".as_bytes() {
+        if name == "grAb".as_bytes() {
+            let mut buffer = <[u8; 4]>::default();
+            file.read(&mut buffer)?;
+            let x = i32::from_be_bytes(buffer);
+            file.read(&mut buffer)?;
+            let y = i32::from_be_bytes(buffer);
+            return Ok(Some((x, y)));
+        }
+        file.seek(SeekFrom::Current(length as i64 + 4))?;
+        (length, name) = read_header(&mut file)?;
+    }
+
+    Ok(None)
+}
+
+///Adds a new grab chunk to the specified png (will have duplicate grab chunks if there is already a grab chunk)
+pub fn push_grab(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+    let mut file = File::options().read(true).write(true).open(path)?;
+    insert_grab(&mut file, default_grab_seek, crc, x, y)?;
+    Ok(())
+}
+
+///Adds or overwrites a grab chunck to the specified png
+pub fn grab(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     let mut file = File::options().read(true).write(true).open(path)?;
 
     file.seek(default_grab_seek)?;
@@ -68,45 +99,24 @@ fn change_grab_to(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     Ok(())
 }
 
-pub fn read_grab(path: &str) -> Result<Option<(i32, i32)>> {
-    let mut file = File::open(path)?;
-
-    file.seek(default_grab_seek)?;
-    let (mut length, mut name) = read_header(&mut file)?;
-
-    while name != "IDAT".as_bytes() {
-        if name == "grAb".as_bytes() {
-            let mut buffer = <[u8; 4]>::default();
-            file.read(&mut buffer)?;
-            let x = i32::from_be_bytes(buffer);
-            file.read(&mut buffer)?;
-            let y = i32::from_be_bytes(buffer);
-            return Ok(Some((x, y)));
-        }
-        file.seek(SeekFrom::Current(length as i64 + 4))?;
-        (length, name) = read_header(&mut file)?;
-    }
-
-    Ok(None)
-}
-
-pub fn push_grab(path: &str, x: i32, y: i32, crc: &Crc32) -> Result<()> {
-    let mut file = File::options().read(true).write(true).open(path)?;
-    insert_grab(&mut file, default_grab_seek, crc, x, y)?;
-    Ok(())
-}
-
+///Adds grab chunks to the specified pngs using either the `push_grab` or `grab` functions based on `should_push`
 pub fn grab_all(
     paths: impl Iterator<Item = String>,
     crc: &Crc32,
     source_x: String,
     source_y: String,
+    should_push: bool,
 ) -> Result<()> {
     macro_rules! error {
         ($($arg:tt)*) => {
             return Err(format!($($arg)*).into())
         };
     }
+
+    let grab_fn = match should_push {
+        true => push_grab,
+        false => grab,
+    };
 
     let width_or_height = |c| c == 'w' || c == 'h';
     let get_dimensions = |path: &str| -> Result<(i32, i32)> {
@@ -123,10 +133,12 @@ pub fn grab_all(
                 let (w, h) = get_dimensions(&path)?;
                 match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
                     (Ok(x), Ok(y)) => {
-                        change_grab_to(&path, &crc, x, y)?;
+                        grab_fn(&path, &crc, x, y)?;
                         println!("grabbed '{path}' successfully at ({x}, {y})!");
-                    },
-                    (Err(e1), Err(e2)) => error!("error in '{source_x}' for '{path}': {e1}\nerror in '{source_y:}' for '{path}': {e2}"),
+                    }
+                    (Err(e1), Err(e2)) => error!(
+                        "error in '{source_x}' for '{path}': {e1}\nerror in '{source_y:}' for '{path}': {e2}"
+                    ),
                     (Err(e), _) => error!("error in '{source_x}' for '{path}': {e}"),
                     (_, Err(e)) => error!("error in '{source_y}' for '{path}': {e}"),
                 }
@@ -135,7 +147,7 @@ pub fn grab_all(
         (false, false) => match (calc::eval(&source_x, 0, 0), calc::eval(&source_y, 0, 0)) {
             (Ok(x), Ok(y)) => {
                 for path in paths {
-                    change_grab_to(&path, &crc, x, y)?;
+                    grab_fn(&path, &crc, x, y)?;
                     println!("grabbed '{path}' successfully at ({x}, {y})!");
                 }
             }
@@ -151,7 +163,7 @@ pub fn grab_all(
                     let (w, h) = get_dimensions(&path)?;
                     match calc::eval(&source_x, w, h) {
                         Ok(x) => {
-                            change_grab_to(&path, &crc, x, y)?;
+                            grab_fn(&path, &crc, x, y)?;
                             println!("grabbed '{path}' successfully at ({x}, {y})!");
                         }
                         Err(e) => error!("error in '{source_x}' for '{path}': {e}"),
@@ -174,7 +186,7 @@ pub fn grab_all(
                     let (w, h) = get_dimensions(&path)?;
                     match calc::eval(&source_y, w, h) {
                         Ok(y) => {
-                            change_grab_to(&path, &crc, x, y)?;
+                            grab_fn(&path, &crc, x, y)?;
                             println!("grabbed '{path}' successfully at ({x}, {y})!");
                         }
                         Err(e) => error!("error in '{source_y}' for '{path}': {e}"),

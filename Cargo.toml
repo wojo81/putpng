@@ -2,6 +2,14 @@
 name = "putpng"
 version = "1.0.0"
 edition = "2024"
+authors = ["Tyler Wojciechowski <tylerwojo81@gmail.com>"]
+description = "Replacement for the doom modding tools grabpng and setpng"
+license = "MIT or Apache-2.0"
+readme = "readme.md"
+repository = "https://github.com/wojo81/putpng"
+documentation = "https://docs.rs/putpng"
+homepage = "https://github.com/wojo81/putpng"
+keywords = ["grabpng", "setpng", "doom", "cli", "library", "tool"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

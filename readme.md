@@ -38,3 +38,10 @@ Let's say that a user wants to apply an offset of '(16, 32)' and crop a batch of
     putpng grab 16 32 generic_weapon\*\* -i pickup\ projectile\
     putpng grab w/2 'h / 2' generic_weapon\pickup\* generic_weapon\projectile\*
     putpng crop generic_weapon\*\*
+
+## License
+
+This project is license under either of
+
+- [MIT license](LICENSE-MIT)
+- [Apache license (Version 2.0)](LICENSE_APACHE)

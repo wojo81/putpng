@@ -42,7 +42,7 @@ fn main() {
     match commands {
         Commands::Grab { x, y } => {
             let crc = Crc32::new();
-            let _ = grab_all(paths, &crc, x, y).inspect_err(|e| eprintln!("{e}"));
+            let _ = grab_all(paths, &crc, x, y, false).inspect_err(|e| eprintln!("{e}"));
         }
         Commands::Crop => {
             let crc = Crc32::new();
