@@ -41,7 +41,7 @@ Let's say that a user wants to apply an offset of '(16, 32)' and crop a batch of
 
 ## License
 
-This project is license under either of
+This project is licensed under either of
 
 - [MIT license](LICENSE-MIT)
 - [Apache license (Version 2.0)](LICENSE-APACHE)
