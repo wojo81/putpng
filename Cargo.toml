@@ -23,5 +23,5 @@ panic = 'abort'
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
 image = "0.24.9"
+thiserror = "2.0.12"
 wild = "2.2.1"
-thiserror = "*"
