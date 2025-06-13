@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use clap::{Parser, Subcommand};
 use putpng::crc::*;
 use putpng::crop::*;
@@ -11,7 +13,7 @@ struct Args {
 
     //Paths to be used
     #[arg(global = true)]
-    paths: Vec<String>,
+    paths: Vec<PathBuf>,
 
     ///If paths contain these strings, ignore them
     #[arg(short, long, global=true, num_args = 1 ..)]
@@ -28,8 +30,8 @@ enum Commands {
     Show,
 }
 
-fn ignoring(ignore: Vec<String>) -> impl Fn(&String) -> bool {
-    move |p| !ignore.iter().any(|i| p.contains(i))
+fn ignoring(ignore: Vec<String>) -> impl Fn(&&PathBuf) -> bool {
+    move |p| !ignore.iter().any(|i| p.to_string_lossy().contains(i))
 }
 
 fn main() {
@@ -37,7 +39,10 @@ fn main() {
 
     let (commands, paths) = (
         args.commands,
-        args.paths.into_iter().filter(ignoring(args.ignore)),
+        args.paths
+            .iter()
+            .filter(ignoring(args.ignore))
+            .map(PathBuf::as_path),
     );
     match commands {
         Commands::Grab { x, y } => {
@@ -51,9 +56,9 @@ fn main() {
         Commands::Show => {
             for path in paths {
                 match read_grab(&path) {
-                    Ok(Some(offset)) => println!("'{path}': {offset:?}"),
+                    Ok(Some(offset)) => println!("{path:?}: {offset:?}"),
                     Err(e) => eprintln!("{e}"),
-                    _ => println!("'{path}' does not have an offset"),
+                    _ => println!("{path:?} does not have an offset"),
                 }
             }
         }

@@ -3,6 +3,7 @@ use crate::crc::*;
 use image::*;
 use std::fs::*;
 use std::io::*;
+use std::path::Path;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -44,7 +45,7 @@ fn insert_grab(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) -> 
 }
 
 ///Tries to read the grab chunk if there is one
-pub fn read_grab(path: &str) -> Result<Option<(i32, i32)>> {
+pub fn read_grab(path: &Path) -> Result<Option<(i32, i32)>> {
     let mut file = File::open(path)?;
 
     file.seek(default_grab_seek)?;
@@ -67,14 +68,14 @@ pub fn read_grab(path: &str) -> Result<Option<(i32, i32)>> {
 }
 
 ///Adds a new grab chunk to the specified png (will have duplicate grab chunks if there is already a grab chunk)
-pub fn push_grab(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+pub fn push_grab(path: &Path, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     let mut file = File::options().read(true).write(true).open(path)?;
     insert_grab(&mut file, default_grab_seek, crc, x, y)?;
     Ok(())
 }
 
 ///Adds or overwrites a grab chunck to the specified png
-pub fn grab(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+pub fn grab(path: &Path, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     let mut file = File::options().read(true).write(true).open(path)?;
 
     file.seek(default_grab_seek)?;
@@ -100,8 +101,8 @@ pub fn grab(path: &str, crc: &Crc32, x: i32, y: i32) -> Result<()> {
 }
 
 ///Adds grab chunks to the specified pngs using either the `push_grab` or `grab` functions based on `should_push`
-pub fn grab_all(
-    paths: impl Iterator<Item = String>,
+pub fn grab_all<'a>(
+    paths: impl Iterator<Item = &'a Path>,
     crc: &Crc32,
     source_x: String,
     source_y: String,
@@ -119,7 +120,7 @@ pub fn grab_all(
     };
 
     let width_or_height = |c| c == 'w' || c == 'h';
-    let get_dimensions = |path: &str| -> Result<(i32, i32)> {
+    let get_dimensions = |path: &Path| -> Result<(i32, i32)> {
         let (w, h) = image::open(path)?.dimensions();
         Ok((w as i32, h as i32))
     };
@@ -134,13 +135,13 @@ pub fn grab_all(
                 match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
                     (Ok(x), Ok(y)) => {
                         grab_fn(&path, &crc, x, y)?;
-                        println!("grabbed '{path}' successfully at ({x}, {y})!");
+                        println!("grabbed {path:?} successfully at ({x}, {y})!");
                     }
                     (Err(e1), Err(e2)) => error!(
-                        "error in '{source_x}' for '{path}': {e1}\nerror in '{source_y:}' for '{path}': {e2}"
+                        "error in '{source_x}' for {path:?}: {e1}\nerror in '{source_y:}' for {path:?}: {e2}"
                     ),
-                    (Err(e), _) => error!("error in '{source_x}' for '{path}': {e}"),
-                    (_, Err(e)) => error!("error in '{source_y}' for '{path}': {e}"),
+                    (Err(e), _) => error!("error in '{source_x}' for '{path:?}': {e}"),
+                    (_, Err(e)) => error!("error in '{source_y}' for '{path:?}': {e}"),
                 }
             }
         }
@@ -148,7 +149,7 @@ pub fn grab_all(
             (Ok(x), Ok(y)) => {
                 for path in paths {
                     grab_fn(&path, &crc, x, y)?;
-                    println!("grabbed '{path}' successfully at ({x}, {y})!");
+                    println!("grabbed {path:?} successfully at ({x}, {y})!");
                 }
             }
             (Err(e1), Err(e2)) => {
@@ -164,9 +165,9 @@ pub fn grab_all(
                     match calc::eval(&source_x, w, h) {
                         Ok(x) => {
                             grab_fn(&path, &crc, x, y)?;
-                            println!("grabbed '{path}' successfully at ({x}, {y})!");
+                            println!("grabbed {path:?} successfully at ({x}, {y})!");
                         }
-                        Err(e) => error!("error in '{source_x}' for '{path}': {e}"),
+                        Err(e) => error!("error in '{source_x}' for {path:?}: {e}"),
                     }
                 }
             }
@@ -174,7 +175,7 @@ pub fn grab_all(
                 if let Some(path) = paths.into_iter().next() {
                     let (w, h) = get_dimensions(&path)?;
                     if let Err(e) = calc::eval(&source_x, w, h) {
-                        eprintln!("error in '{source_x}' for '{path}': {e}");
+                        eprintln!("error in '{source_x}' for {path:?}: {e}");
                     }
                 }
                 error!("error in '{source_y}': {e}");
@@ -187,9 +188,9 @@ pub fn grab_all(
                     match calc::eval(&source_y, w, h) {
                         Ok(y) => {
                             grab_fn(&path, &crc, x, y)?;
-                            println!("grabbed '{path}' successfully at ({x}, {y})!");
+                            println!("grabbed {path:?} successfully at ({x}, {y})!");
                         }
-                        Err(e) => error!("error in '{source_y}' for '{path}': {e}"),
+                        Err(e) => error!("error in '{source_y}' for {path:?}: {e}"),
                     }
                 }
             }
@@ -198,7 +199,7 @@ pub fn grab_all(
                 if let Some(path) = paths.into_iter().next() {
                     let (w, h) = get_dimensions(&path)?;
                     if let Err(e) = calc::eval(&source_y, w, h) {
-                        error!("error in '{source_y}' for '{path}': {e}");
+                        error!("error in '{source_y}' for {path:?}: {e}");
                     }
                 }
             }

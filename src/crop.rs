@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::crc::*;
 use crate::grab::*;
 use image::*;
@@ -8,11 +10,11 @@ struct ImageCropper<'a> {
     image: DynamicImage,
     width: u32,
     height: u32,
-    path: &'a str,
+    path: &'a Path,
 }
 
 impl<'a> ImageCropper<'a> {
-    fn open(path: &'a str) -> Result<Self> {
+    fn open(path: &'a Path) -> Result<Self> {
         let image = image::open(path)?;
         let (width, height) = image.dimensions();
         Ok(Self {
@@ -78,15 +80,15 @@ impl<'a> ImageCropper<'a> {
 }
 
 ///Crops all the specified pngs while preserving relative grab offsets
-pub fn crop_all(paths: impl Iterator<Item = String>, crc: &Crc32) -> Result<()> {
+pub fn crop_all<'a>(paths: impl Iterator<Item = &'a Path>, crc: &Crc32) -> Result<()> {
     for path in paths {
         let new_offset = {
-            let grab_offset = read_grab(&path)?.unwrap_or_default();
-            let crop_offset = ImageCropper::open(&path)?.save()?;
+            let grab_offset = read_grab(path)?.unwrap_or_default();
+            let crop_offset = ImageCropper::open(path)?.save()?;
             (grab_offset.0 - crop_offset.0, grab_offset.1 - crop_offset.1)
         };
         push_grab(&path, crc, new_offset.0, new_offset.1)?;
-        println!("Cropped '{path}' successfully!");
+        println!("Cropped {path:?} successfully!");
     }
     Ok(())
 }
