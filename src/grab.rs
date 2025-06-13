@@ -28,10 +28,7 @@ fn write_into(file: &mut File, seek: SeekFrom, data: &[u8]) -> Result<()> {
 }
 
 fn create_grab(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
-    let body = ["grAb".as_bytes(), &x.to_be_bytes(), &y.to_be_bytes()].concat();
-
-    let body: &[u8] = &body;
-
+    let body: &[u8] = &["grAb".as_bytes(), &x.to_be_bytes(), &y.to_be_bytes()].concat();
     [
         &8u32.to_be_bytes(),
         body,
@@ -40,8 +37,12 @@ fn create_grab(crc: &Crc32, x: i32, y: i32) -> Vec<u8> {
     .concat()
 }
 
-fn insert_grab(file: &mut File, seek: SeekFrom, crc: &Crc32, x: i32, y: i32) -> Result<()> {
-    Ok(write_into(file, seek, &create_grab(crc, x, y))?)
+fn insert_grab(file: &mut File, crc: &Crc32, x: i32, y: i32) -> Result<()> {
+    Ok(write_into(
+        file,
+        default_grab_seek,
+        &create_grab(crc, x, y),
+    )?)
 }
 
 ///Tries to read the grab chunk if there is one
@@ -70,7 +71,7 @@ pub fn read_grab(path: &Path) -> Result<Option<(i32, i32)>> {
 ///Adds a new grab chunk to the specified png (will have duplicate grab chunks if there is already a grab chunk)
 pub fn push_grab(path: &Path, crc: &Crc32, x: i32, y: i32) -> Result<()> {
     let mut file = File::options().read(true).write(true).open(path)?;
-    insert_grab(&mut file, default_grab_seek, crc, x, y)?;
+    insert_grab(&mut file, crc, x, y)?;
     Ok(())
 }
 
@@ -96,7 +97,7 @@ pub fn grab(path: &Path, crc: &Crc32, x: i32, y: i32) -> Result<()> {
         file.seek(SeekFrom::Current(length as i64 + 4))?;
         (length, name) = read_header(&mut file)?;
     }
-    insert_grab(&mut file, default_grab_seek, &crc, x, y)?;
+    insert_grab(&mut file, &crc, x, y)?;
     Ok(())
 }
 
@@ -104,8 +105,8 @@ pub fn grab(path: &Path, crc: &Crc32, x: i32, y: i32) -> Result<()> {
 pub fn grab_all<'a>(
     paths: impl Iterator<Item = &'a Path>,
     crc: &Crc32,
-    source_x: String,
-    source_y: String,
+    source_x: &str,
+    source_y: &str,
     should_push: bool,
 ) -> Result<()> {
     macro_rules! error {
@@ -119,8 +120,8 @@ pub fn grab_all<'a>(
         false => grab,
     };
 
-    let width_or_height = |c| c == 'w' || c == 'h';
-    let get_dimensions = |path: &Path| -> Result<(i32, i32)> {
+    let width_or_height = |c| c == 'w' || c == 'h' || c == 'W' || c == 'H';
+    let get_dimensions = |path| -> Result<(i32, i32)> {
         let (w, h) = image::open(path)?.dimensions();
         Ok((w as i32, h as i32))
     };
@@ -131,7 +132,7 @@ pub fn grab_all<'a>(
     ) {
         (true, true) => {
             for path in paths.into_iter() {
-                let (w, h) = get_dimensions(&path)?;
+                let (w, h) = get_dimensions(path)?;
                 match (calc::eval(&source_x, w, h), calc::eval(&source_y, w, h)) {
                     (Ok(x), Ok(y)) => {
                         grab_fn(&path, &crc, x, y)?;

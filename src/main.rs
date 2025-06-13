@@ -1,12 +1,14 @@
-use std::path::{Path, PathBuf};
-
 use clap::{Parser, Subcommand};
 use putpng::crc::*;
 use putpng::crop::*;
 use putpng::grab::*;
+use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(version)]
+#[command(
+    version,
+    override_usage = "putpng <COMMAND> [PATHS]... [IGNORE-OPTION]"
+)]
 struct Args {
     #[command(subcommand)]
     commands: Commands,
@@ -16,7 +18,7 @@ struct Args {
     paths: Vec<PathBuf>,
 
     ///If paths contain these strings, ignore them
-    #[arg(short, long, global=true, num_args = 1 ..)]
+    #[arg(short, long, global = true, num_args = 1..)]
     ignore: Vec<String>,
 }
 
@@ -47,7 +49,7 @@ fn main() {
     match commands {
         Commands::Grab { x, y } => {
             let crc = Crc32::new();
-            let _ = grab_all(paths, &crc, x, y, false).inspect_err(|e| eprintln!("{e}"));
+            let _ = grab_all(paths, &crc, &x, &y, false).inspect_err(|e| eprintln!("{e}"));
         }
         Commands::Crop => {
             let crc = Crc32::new();
@@ -55,7 +57,7 @@ fn main() {
         }
         Commands::Show => {
             for path in paths {
-                match read_grab(&path) {
+                match read_grab(path) {
                     Ok(Some(offset)) => println!("{path:?}: {offset:?}"),
                     Err(e) => eprintln!("{e}"),
                     _ => println!("{path:?} does not have an offset"),

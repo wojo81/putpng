@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+type Result<T> = std::result::Result<T, Error>;
+
 pub fn eval(source: &str, width: i32, height: i32) -> Result<i32> {
     let mut yard = Yard::new(source)?;
     while !yard.source.is_empty() {
@@ -136,8 +138,8 @@ impl Token {
                         &source[digit_count..],
                     ));
                 }
-                'w' => Token::Width,
-                'h' => Token::Height,
+                'w' | 'W' => Token::Width,
+                'h' | 'H' => Token::Height,
                 '+' => Token::affirm,
                 '-' => Token::negate,
                 '*' => return Err(Error::MisplacedOperator('*')),
@@ -151,8 +153,8 @@ impl Token {
                     let digit_count = chars.take_while(|c| c.is_digit(10)).count() + 1;
                     return Err(Error::MisplacedInteger(source[0..digit_count].to_string()));
                 }
-                'w' => return Err(Error::MisplacedInteger("w".into())),
-                'h' => return Err(Error::MisplacedInteger("h".into())),
+                'w' | 'W' => return Err(Error::MisplacedInteger("w".into())),
+                'h' | 'H' => return Err(Error::MisplacedInteger("h".into())),
                 '+' => Token::add,
                 '-' => Token::sub,
                 '*' => Token::mul,
@@ -274,8 +276,6 @@ fn paren_binding(yard: &mut Yard, token: Token) -> Result<()> {
         default_binding(yard, token)
     }
 }
-
-type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum Error {
