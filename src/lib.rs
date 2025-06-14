@@ -1,8 +1,25 @@
+//! # grabpng/setpng alternative
+//! This is a tool for editing grAb chunks for Doom modding like [grabpng/setpng](https://zdoom.org/wiki/SetPNG).
+//!
+//! # Example
+//! ```rust,ignore
+//! use putpng::prelude::*;
+//!
+//! fn main() {
+//!     let crc = Crc32::new();
+//!     let path = "sample.png";
+//!
+//!     grab(path, &crc, 30, 20).unwrap();
+//!     crop(path, &crc).unwrap();
+//! }
+//! ```
+
 #![allow(nonstandard_style)]
 mod calc;
 pub mod crc;
 pub mod crop;
 pub mod grab;
+pub mod prelude;
 
 #[cfg(test)]
 mod calc_tests {
